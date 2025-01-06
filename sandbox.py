@@ -1,8 +1,9 @@
-import json
+from datetime import datetime
 from io import StringIO
+import json
 import os
-from typing import Dict, List, Optional
 import time
+from typing import Dict, List, Optional
 
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -55,12 +56,14 @@ def scrape_polymarket(save: bool = False) -> Dict:
     response = requests.get(POLYMARKET_URL)
     soup = BeautifulSoup(response.text, 'html.parser')
 
+    today_date = datetime.now().strftime('%Y-%m-%d')
+
     data = json.loads(soup.find('script', id='__NEXT_DATA__').string)
     listings = data['props']['pageProps']['dehydratedState']['queries'][1]['state']['data']
-    active_listings = [l for l in listings if l['closed'] == False]
+    active_listings = [l for l in listings if l['closed'] == False and today_date in l['slug']]
 
     if save:
-        with open('mkt-output.txt', 'w') as f:
+        with open('tmp/mkt-output.txt', 'w') as f:
             f.write(prettify(active_listings))
 
     return active_listings
@@ -134,7 +137,7 @@ def scrape_odds(save: bool = False) -> pd.DataFrame:
         df = df.drop(df.columns[0], axis=1)
 
         if save:
-            with open('book-output.txt', 'w') as f:
+            with open('tmp/book-output.txt', 'w') as f:
                 f.write(prettify(df.to_json()))
 
         return df

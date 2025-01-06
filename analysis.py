@@ -6,27 +6,48 @@ import pandas as pd
 
 team_ignore_list = ()
 
-def load_outcomes():
+def load_outcomes() -> dict:
+    """
+    Load outcomes from JSON file.
+    """
     with open('outcomes.json', 'r') as f:
         return json.load(f)
 
-def row_to_outcome(row) -> int:
+def row_to_outcome(row: pd.Series) -> int:
+    """
+    Return the outcome of a row based on the outcomes file.
+
+    Args:
+        row (pd.Series): Row of the DataFrame
+
+    Returns:
+        int: 1 if team won, 0 if lost
+    """
     outcomes = load_outcomes()
     date = datetime.fromtimestamp(row['Timestamp']).strftime('%Y-%m-%d')
     return outcomes[date][row['Team']]
 
-def load():
+def load() -> pd.DataFrame:
+    """
+    Load the wagers CSV file into a DataFrame.
+    """
     data = pd.read_csv('wagers.csv')
     return data
 
-def formatted_df():
+def formatted_df() -> pd.DataFrame:
+    """
+    Return a formatted DataFrame with additional columns for analysis.
+    """
     df = load()
     df = df[~df['Team'].isin(team_ignore_list)]
     df['price'] = df['Polymarket Odds'].apply(odds_to_price)
     df['outcome'] = df.apply(row_to_outcome, axis=1)
     return df
 
-def kelly_sim(df: pd.DataFrame):
+def kelly_sim(df: pd.DataFrame) -> None:
+    """
+    Simulate different maximums for bet sizing and graph the results.
+    """
     df = df.sort_values('Timestamp')
     caps = [1, 2, 5, 10, 20, 30, float('inf')]  # inf for uncapped
     
@@ -57,8 +78,8 @@ def kelly_sim(df: pd.DataFrame):
 
 def calculate_sharpe_ratio(df: pd.DataFrame) -> dict:
     """
-    Calculate Sharpe ratio for both Kelly and equal weight strategies.
-    Uses current risk-free rate of 4.6%.
+    Calculate Sharpe ratio for each strategy.
+    Uses current risk-free rate of 4.6%. (1/5/25)
 
     Returns:
         dict: Sharpe ratios by strategy
@@ -110,7 +131,14 @@ def odds_to_price(american_odds: int) -> float:
         
     return probability
 
-def graph(df: pd.DataFrame):
+def graph(df: pd.DataFrame) -> None:
+    """
+    Graph results according to different strategies.
+    Current strategies: Kelly criterion, equal weight
+
+    Args:
+        df (pd.DataFrame): Formatted DataFrame of wagers
+    """
     df = df.sort_values('Timestamp')
     
     # Calculate running profit/loss
@@ -176,4 +204,3 @@ if __name__ == "__main__":
     print(f"Kelly weight profit: {kelly_weight_profit:.2f}, risked {kelly_risked:.2f}, ROI {kelly_weight_profit/kelly_risked:.2f}, Sharpe {sharpe_ratios['kelly']:.2f}")
 
     graph(df)
-    kelly_sim(df)

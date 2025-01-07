@@ -18,6 +18,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from games import get_live_teams
+from constants import WAGERS_PATH
+
 
 POLYMARKET_URL = "https://polymarket.com/sports/nba/games"
 ODDS_URL = "https://sportsbook.draftkings.com/leagues/basketball/nba"
@@ -282,7 +285,7 @@ def main(teams_list: Optional[List[str]] = None) -> pd.DataFrame:
     return process_odds_data(book_odds, polymarket_odds, teams_list)
 
 
-def live(refresh_interval: int = 60, rebet_interval: int = 5, teams_list: Optional[List[str]] = None) -> None:
+def live(refresh_interval: int = 60, csv_path: str = WAGERS_PATH, teams_list: Optional[List[str]] = None, dry_run: bool = False) -> None:
     """
     Continuously monitor Polymarket and sportsbook for arbitrage opportunities.
     
@@ -292,7 +295,6 @@ def live(refresh_interval: int = 60, rebet_interval: int = 5, teams_list: Option
         teams_list (Optional[List[str]]): List of teams to monitor
     """
     console = Console()
-    csv_path = 'wagers.csv'
     
     if not os.path.exists(csv_path):
         pd.DataFrame(columns=[
@@ -315,6 +317,16 @@ def live(refresh_interval: int = 60, rebet_interval: int = 5, teams_list: Option
         while True:
             try:
                 i += 1
+
+                if teams_list:
+                    live_teams = [team for team in get_live_teams() if team in teams_list]
+                else:
+                    live_teams = get_live_teams()
+                if not live_teams:
+                    progress.update(poly_task, description="[red]No live games found")
+                    progress.update(book_task, description="[red]Waiting to retry...")
+                    time.sleep(refresh_interval)
+                    continue
                 
                 # Update Polymarket task
                 progress.update(poly_task, completed=0, description="Scraping Polymarket...")
@@ -327,20 +339,26 @@ def live(refresh_interval: int = 60, rebet_interval: int = 5, teams_list: Option
                 progress.update(book_task, completed=1, description="[green]✓ [white]DraftKings ready")
                 
                 # Process the odds data
-                diffs = process_odds_data(book_odds, polymarket_odds, teams_list)
+                diffs = process_odds_data(book_odds, polymarket_odds, live_teams)
                 opportunities = diffs[diffs['Wager'] == True].copy()
                 
                 if not opportunities.empty:
                     existing = pd.read_csv(csv_path)
-                    current_time = time.time()
-                    opportunities['Timestamp'] = current_time
+                    opportunities['Timestamp'] = time.time()
                     
-                    new_opps = opportunities[~opportunities['Team'].apply(
-                        lambda team: any((existing['Team'] == team) & 
-                                    (current_time - existing['Timestamp'].astype(float) < rebet_interval * refresh_interval))
-                    )]
+                    # Get most recent wager for each team
+                    latest_wagers = existing.sort_values('Timestamp').groupby('Team').last().reset_index()
                     
-                    if not new_opps.empty:
+                    # Filter out opportunities where the most recent wager has the same odds
+                    new_opps = opportunities[~opportunities.apply(
+                        lambda row: any((latest_wagers['Team'] == row['Team']) & 
+                                   (latest_wagers['Book Odds'] == row['Book Odds']) &
+                                   (latest_wagers['Polymarket Price'] == row['Polymarket Price'])), axis=1)]
+                    
+                    if dry_run:
+                        print(new_opps)
+                    
+                    if not new_opps.empty and not dry_run:
                         new_opps.to_csv(csv_path, mode='a', header=False, index=False)
                 
                 # Countdown timer

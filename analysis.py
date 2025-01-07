@@ -4,13 +4,15 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from constants import OUTCOMES_PATH, WAGERS_PATH
+
 team_ignore_list = ()
 
 def load_outcomes() -> dict:
     """
     Load outcomes from JSON file.
     """
-    with open('outcomes.json', 'r') as f:
+    with open(OUTCOMES_PATH, 'r') as f:
         return json.load(f)
 
 def row_to_outcome(row: pd.Series) -> int:
@@ -31,17 +33,28 @@ def load() -> pd.DataFrame:
     """
     Load the wagers CSV file into a DataFrame.
     """
-    data = pd.read_csv('wagers.csv')
+    data = pd.read_csv(WAGERS_PATH)
     return data
 
-def formatted_df() -> pd.DataFrame:
+def formatted_df(intervals=None) -> pd.DataFrame:
     """
     Return a formatted DataFrame with additional columns for analysis.
+    
+    Args:
+        intervals (list): List of (start_datetime, end_datetime, team_list) tuples
     """
     df = load()
     df = df[~df['Team'].isin(team_ignore_list)]
     df['price'] = df['Polymarket Odds'].apply(odds_to_price)
     df['outcome'] = df.apply(row_to_outcome, axis=1)
+    
+    if intervals:
+        mask = pd.Series(False, index=df.index)
+        for start, end, teams in intervals:
+            interval_mask = (df['Timestamp'] >= start.timestamp()) & (df['Timestamp'] <= end.timestamp()) & (df['Team'].isin(teams))
+            mask |= interval_mask
+        df = df[mask]
+    
     return df
 
 def kelly_sim(df: pd.DataFrame) -> None:

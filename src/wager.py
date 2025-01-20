@@ -215,7 +215,7 @@ def place_wagers(
                 break
 
         # Calculate amount to wager and enter in field
-        amount_dollars = unit * row["Kelly Size"]
+        amount_dollars = unit * row["Kelly Size"] * row["Polymarket Price"]
         if amount_dollars < row["Polymarket Price"]:
             results.append(False)
             continue

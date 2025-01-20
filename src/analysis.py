@@ -241,7 +241,7 @@ if __name__ == "__main__":
     kelly_earnings = df[df["outcome"] == 1]["Kelly Size"].sum()
     kelly_price = (df["Kelly Size"] * df["price"]).sum()
     kelly_weight_profit = kelly_earnings - kelly_price
-    kelly_risked = df["Kelly Size"].sum()
+    kelly_risked = (df["Kelly Size"] * df["price"]).sum()
 
     # Calculate Sharpe by strategy
     sharpe_ratios = calculate_sharpe_ratio(df)

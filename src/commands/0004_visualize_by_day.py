@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import Optional
 
+from src.analysis import odds_to_price
 
 def visualize_by_day(u: Optional[float] = 1.0):
     """
@@ -16,7 +17,8 @@ def visualize_by_day(u: Optional[float] = 1.0):
     df["Date"] = pd.to_datetime(df["Timestamp"], unit="s").dt.date
 
     # Calculate risk for each bet
-    df["Risk"] = df["Kelly Size"] * u
+    df["price"] = df["Polymarket Odds"].apply(odds_to_price)
+    df["Risk"] = df["Kelly Size"] * df["price"] * u
 
     # Group by date
     daily = df.groupby("Date").agg({"Risk": "sum", "Team": "count"}).round(2)

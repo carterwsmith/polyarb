@@ -22,7 +22,11 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from src.constants import POLYMARKET_URL, NBA_TEAM_TO_POLYMARKET_ABBREVIATION
+from src.constants import (
+    POLYMARKET_URL,
+    NBA_TEAM_TO_POLYMARKET_ABBREVIATION,
+    PolymarketWagerStatus,
+)
 
 
 class PolymarketBetPanelDOMElement:
@@ -64,7 +68,7 @@ class PolymarketGameDOMElement:
 
     def prices(self) -> Tuple[float, float]:
         """
-        Extract the current prices for the game as floats.
+        Extract the current prices for the game (in $) as floats.
 
         Returns:
             Tuple[float, float]: (away price, home price)
@@ -77,7 +81,7 @@ class PolymarketGameDOMElement:
         )  # Extract number after abbreviation
         home_price = float(home_price_text[3:].replace("¢", ""))
 
-        return away_price, home_price
+        return away_price / 100, home_price / 100
 
     def button_from_full_team_name(self, full_team_name: str) -> WebElement:
         """
@@ -117,6 +121,18 @@ class PolymarketBrowserContext:
         self.game_elements = game_elements
         self.bet_panel = bet_panel
 
+    def refresh(self) -> None:
+        """
+        Refresh the browser context.
+        """
+        self.browser.refresh()
+
+    def close(self) -> None:
+        """
+        Close the browser.
+        """
+        self.browser.quit()
+
 
 def get_browser() -> webdriver.Chrome:
     """
@@ -125,6 +141,7 @@ def get_browser() -> webdriver.Chrome:
     Returns:
         webdriver.Chrome: Chrome browser
     """
+    # TODO: add timeout
     chrome_options = Options()
     chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
     return webdriver.Chrome(options=chrome_options)
@@ -187,7 +204,7 @@ def place_wagers(
     context: PolymarketBrowserContext,
     unit: float = 1.0,
     dry_run: bool = True,
-) -> List[bool]:
+) -> List[PolymarketWagerStatus]:
     """
     From a df with these columns:
         Team  Wager  Kelly Size  Diff  Book Odds  Polymarket Odds  Polymarket Price  Timestamp
@@ -200,7 +217,7 @@ def place_wagers(
         dry_run (bool, optional): If True, don't actually place wagers. Defaults to True
 
     Returns:
-        List[bool]: List of booleans indicating if each wager was successfully placed
+        List[PolymarketWagerStatus]: List of strings indicating if each wager was successfully placed
     """
     results = []
     for _, row in df.iterrows():
@@ -209,36 +226,49 @@ def place_wagers(
             continue
 
         # Find the button for the team and click it
+        team_found = False
         for g in context.game_elements:
             if g.button_from_full_team_name(row["Team"]):
                 g.button_from_full_team_name(row["Team"]).click()
+                team_found = True
                 break
+
+        if not team_found:
+            results.append(PolymarketWagerStatus.TEAM_NOT_SELECTED)
+            continue
 
         # Calculate amount to wager and enter in field
         amount_dollars = unit * row["Kelly Size"] * row["Polymarket Price"]
         if amount_dollars < row["Polymarket Price"]:
-            results.append(False)
+            results.append(PolymarketWagerStatus.WAGER_TOO_SMALL)
             continue
         context.bet_panel.amount_field.send_keys(str(amount_dollars))
 
         # Assert the team and price is correct
         time.sleep(1)
         try:
-            assert row["Team"] in context.bet_panel.root.text
-            assert (
+            if not row["Team"] in context.bet_panel.root.text:
+                results.append(PolymarketWagerStatus.TEAM_NOT_SELECTED)
+                continue
+            if not (
                 str(float_to_cents(row["Polymarket Price"]))
                 in context.bet_panel.price_field.text
-            )
+            ):
+                results.append(PolymarketWagerStatus.PRICE_CHANGED)
+                continue
             # Click the buy button
             if dry_run:
-                raise AssertionError("Dry run")
+                results.append(PolymarketWagerStatus.DRY_RUN)
+                continue
             context.bet_panel.buy_button.click()
             time.sleep(1)
-            assert "insufficient balance" not in context.bet_panel.root.text.lower()
-            results.append(True)
-        except AssertionError:
+            if "insufficient balance" in context.bet_panel.root.text.lower():
+                results.append(PolymarketWagerStatus.INSUFFICIENT_BALANCE)
+                continue
+            results.append(PolymarketWagerStatus.PLACED)
+        except:
             # TODO: size down bet to match desired price, change field in saved wager
-            results.append(False)
+            results.append(PolymarketWagerStatus.EXCEPTION)
 
         # Random sleep between wagers
         time.sleep(random.uniform(1, 5))
@@ -324,7 +354,9 @@ def extract(browser: webdriver.Chrome) -> PolymarketBrowserContext:
     price_field = price_container.find_element(By.CSS_SELECTOR, "span")
     assert price_field
     buy_button = [
-        b for b in container.find_elements(By.CSS_SELECTOR, "button") if "Buy" in b.text
+        b
+        for b in container.find_elements(By.CSS_SELECTOR, "button")
+        if "Buy" in b.text or "log in" in b.text.lower()
     ][0]
     assert buy_button
     bet_panel = PolymarketBetPanelDOMElement(
@@ -367,29 +399,3 @@ def init_browser_context() -> PolymarketBrowserContext:
     context = extract(browser)
 
     return context
-
-
-def test_wagers(example_data: pd.DataFrame) -> List[bool]:
-    """
-    Test placing wagers on the Polymarket NBA page.
-
-    Args:
-        example_data (pd.DataFrame): Example DataFrame of wagers
-
-    Returns:
-        List[bool]: List of booleans indicating if each wager was successfully placed
-    """
-    # The values will have to be changed to match an active wager
-    # example_data = {
-    #     "Team": ["Warriors", "Magic"],
-    #     "Wager": [True, True],
-    #     "Kelly Size": [1, 1],
-    #     "Diff": [100, 100],
-    #     "Book Odds": [-200, -200],
-    #     "Polymarket Odds": [200, 200],
-    #     "Polymarket Price": [0.22, 0.31],
-    #     "Timestamp": [time.time(), time.time()],
-    # }
-    context = init_browser_context()
-    example_df = pd.DataFrame(example_data)
-    return place_wagers(example_df, context, unit=1.0)

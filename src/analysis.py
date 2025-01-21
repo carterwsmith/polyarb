@@ -8,7 +8,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.constants import OUTCOMES_PATH, WAGERS_PATH
+from src.constants import OUTCOMES_PATH, WAGERS_PATH, SUCCESS_STATUSES
 
 team_ignore_list = ()
 
@@ -195,6 +195,7 @@ def graph(df: pd.DataFrame) -> None:
         dates.append(datetime.fromtimestamp(row["Timestamp"]).strftime("%Y-%m-%d"))
 
     # Calculate running total of equal weight profit/loss
+    # TODO: graph separate lines for actual placed wagers vs skipped wagers using SUCCESS_STATUSES
     equal_weight_pl = []
     running_equal_weight_pl = 0
     for _, row in df.iterrows():

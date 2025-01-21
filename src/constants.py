@@ -2,7 +2,24 @@
 Constants used in the project.
 """
 
+from enum import StrEnum
+
 from src.utils import get_git_revision_short_hash
+
+
+class PolymarketWagerStatus(StrEnum):
+    PLACED = "Placed"
+    TEAM_NOT_SELECTED = "Team not selected"
+    WAGER_TOO_SMALL = "Wager too small"
+    PRICE_CHANGED = "Price changed"
+    DRY_RUN = "Dry run"
+    INSUFFICIENT_BALANCE = "Insufficient balance"
+    EXCEPTION = "Exception"
+
+
+SUCCESS_STATUSES = [
+    PolymarketWagerStatus.PLACED,
+]
 
 OUTCOMES_PATH = "tmp/outcomes.json"
 WAGERS_PATH = f"tmp/wagers_{get_git_revision_short_hash()}.csv"

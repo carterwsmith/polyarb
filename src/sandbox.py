@@ -20,13 +20,19 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from selenium import webdriver
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from src.games import get_live_teams
-from src.constants import WAGERS_PATH, POLYMARKET_URL, ODDS_URL
-from src.wager import init_browser_context, place_wagers
+from src.constants import (
+    WAGERS_PATH,
+    ODDS_URL,
+    PolymarketWagerStatus,
+    NBA_TEAM_TO_POLYMARKET_ABBREVIATION,
+)
+from src.wager import init_browser_context, place_wagers, PolymarketBrowserContext
 
 
 class PolymarketOdds:
@@ -63,69 +69,27 @@ def prettify(json_data: str) -> str:
     return json.dumps(json_data, indent=4)
 
 
-def get_polymarket() -> List[PolymarketOdds]:
+def get_polymarket(context: PolymarketBrowserContext) -> List[PolymarketOdds]:
     """
     Get active NBA markets from Polymarket.
 
     Returns:
         List[PolymarketOdds]: Cleaned PolymarketOdds objects
     """
-    scraped = scrape_polymarket()
-    return clean_polymarket(scraped)
-
-
-def scrape_polymarket(save: bool = False) -> Dict:
-    """
-    Scrape Polymarket for active NBA games.
-
-    Args:
-        save (bool): If True, save the output to tmp/mkt-output.txt
-
-    Returns:
-        Dict: Raw scraped data from today's NBA game markets
-    """
-    response = requests.get(POLYMARKET_URL)
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    today_date = datetime.now().strftime("%Y-%m-%d")
-
-    data = json.loads(soup.find("script", id="__NEXT_DATA__").string)
-    listings = data["props"]["pageProps"]["dehydratedState"]["queries"][1]["state"][
-        "data"
-    ]
-    active_listings = [
-        l for l in listings if l["closed"] == False and today_date in l["slug"]
-    ]
-
-    if save:
-        with open("tmp/mkt-output.txt", "w") as f:
-            f.write(prettify(active_listings))
-
-    return active_listings
-
-
-def clean_polymarket(listings: Dict) -> List[PolymarketOdds]:
-    """
-    Clean Polymarket data into a list of PolymarketOdds objects.
-
-    Args:
-        listings (Dict): Raw scraped data from Polymarket
-
-    Returns:
-        List[PolymarketOdds]: Cleaned PolymarketOdds objects
-    """
-
-    def build_obj(listing):
-        market = listing["markets"][0]
+    out = []
+    for game in context.game_elements:
+        try:
+            away_price, home_price = game.prices()
+        except StaleElementReferenceException:
+            continue
         obj = PolymarketOdds(
-            away_team=market["outcomes"][0],
-            away_team_price=float(market["outcomePrices"][0]),
-            home_team=market["outcomes"][1],
-            home_team_price=float(market["outcomePrices"][1]),
+            away_team=game.away_team_abbr,
+            away_team_price=away_price,
+            home_team=game.home_team_abbr,
+            home_team_price=home_price,
         )
-        return obj
-
-    return [build_obj(listing) for listing in listings]
+        out.append(obj)
+    return out
 
 
 def find_team_polymarket_price(
@@ -135,16 +99,22 @@ def find_team_polymarket_price(
     Find the current Polymarket price for a given team.
 
     Args:
-        team (str): Team name
+        team (str): Full team name (from DraftKings)
         listings (List[PolymarketOdds]): List of PolymarketOdds objects
 
     Returns:
         Optional[float]: Polymarket price for the team or None
     """
     for listing in listings:
-        if team.lower() in listing.away_team.lower():
+        if (
+            NBA_TEAM_TO_POLYMARKET_ABBREVIATION[team].lower()
+            in listing.away_team.lower()
+        ):
             return listing.away_team_price
-        elif team.lower() in listing.home_team.lower():
+        elif (
+            NBA_TEAM_TO_POLYMARKET_ABBREVIATION[team].lower()
+            in listing.home_team.lower()
+        ):
             return listing.home_team_price
     return None
 
@@ -191,6 +161,9 @@ def scrape_odds(save: bool = False) -> pd.DataFrame:
         df["Team"] = df["Team"].str.replace(
             r"\s*\d+$", "", regex=True
         )  # remove trailing numbers
+        df["Team"] = df["Team"].str.replace(
+            r"\bRegulation[^\s]*\b", "", regex=True
+        )  # remove Regulation and any characters until next space
 
         # Remove time from team names if it exists
         df["Team"] = df["Team"].str.replace(r"^\d+:\d+[AP]M\s*", "", regex=True)
@@ -310,6 +283,7 @@ def process_odds_data(
     rows = []
     for i, row in book_odds.iterrows():
         if teams_list and row["Team"] not in teams_list:
+            print(f"Skipping {row['Team']}, not in teams")
             continue
 
         team: str = row["Team"]
@@ -317,12 +291,14 @@ def process_odds_data(
         try:
             book_odds_val: int = int(row["Moneyline"].replace("−", "-"))
         except:
+            print(f"Skipping {row['Team']}, invalid odds")
             continue
         price: float | None = find_team_polymarket_price(
             team=team,
             listings=polymarket_odds,
         )
-        if price is None or price > 1:
+        if price is None or price > 1 or price == 0:
+            print(f"Skipping {row['Team']}, invalid price")
             continue
         price_as_odds: int = price_to_american_odds(price)
 
@@ -390,13 +366,15 @@ def main(teams_list: Optional[List[str]] = None) -> pd.DataFrame:
     """
     console = Console()
 
+    context = init_browser_context()
+
     with Progress(
         SpinnerColumn(),
         TextColumn("{task.description}"),
         console=console,
     ) as progress:
         poly_task = progress.add_task("Scraping Polymarket...", total=1)
-        polymarket_odds = get_polymarket()
+        polymarket_odds = get_polymarket(context)
         progress.advance(poly_task)
         progress.update(poly_task, description="[green]✓ [white]Scraped Polymarket")
 
@@ -438,6 +416,7 @@ def live(
                 "Polymarket Odds",
                 "Polymarket Price",
                 "Timestamp",
+                "Wager Placed",
             ]
         ).to_csv(csv_path, index=False)
 
@@ -453,11 +432,11 @@ def live(
     layout.split(Layout(progress, name="status"), Layout(name="table"))
     layout["status"].size = 1
 
-    if not dry_run:
-        context = init_browser_context()
+    context = init_browser_context()
 
     i = 0
     no_games_count = 0
+    refresh_count = 0
     latest_wagers_table = None
 
     with Live(layout, console=console, refresh_per_second=4) as live:
@@ -478,6 +457,8 @@ def live(
                         console.print(
                             f"[red]No live games found for {timeout} consecutive checks. Exiting..."
                         )
+                        live.stop()
+                        context.close()
                         return
                     for remaining in range(refresh_interval, 0, -1):
                         incr_str = (
@@ -491,14 +472,22 @@ def live(
 
                 no_games_count = 0
 
+                if refresh_count >= 5:
+                    progress.update(status_task, description="Refreshing browser...")
+                    context.refresh()
+                    refresh_count = 0
+
                 progress.update(status_task, description="Scraping Polymarket...")
-                polymarket_odds = get_polymarket()
+                polymarket_odds = get_polymarket(context)
 
                 progress.update(status_task, description="Scraping DraftKings...")
                 book_odds = scrape_odds()
 
+                refresh_count += 1
+
                 diffs = process_odds_data(book_odds, polymarket_odds, live_teams)
                 opportunities = diffs[diffs["Wager"] == True].copy()
+                teams_evaluated = len(book_odds[book_odds["Team"].isin(live_teams)])
 
                 if not opportunities.empty:
                     existing = pd.read_csv(csv_path)
@@ -528,14 +517,16 @@ def live(
                     ]
 
                     if dry_run:
-                        new_opps["Wager Placed"] = False
+                        new_opps["Wager Placed"] = PolymarketWagerStatus.DRY_RUN.value
                     else:
                         # Place wagers
                         did_place = place_wagers(
                             df=new_opps,
                             context=context,
                         )
-                        new_opps["Wager Placed"] = did_place
+                        new_opps["Wager Placed"] = [
+                            status.value for status in did_place
+                        ]
 
                     if not new_opps.empty:
                         new_opps.to_csv(csv_path, mode="a", header=False, index=False)
@@ -569,11 +560,12 @@ def live(
                 for remaining in range(refresh_interval, 0, -1):
                     progress.update(
                         status_task,
-                        description=f"Found {len(new_opps) if 'new_opps' in locals() else 0} wagers ({i} iter) - {remaining}s",
+                        description=f"Found {len(new_opps) if 'new_opps' in locals() else 0} wagers / {teams_evaluated} evaluated ({i} iter) - {remaining}s",
                     )
                     time.sleep(1)
             except KeyboardInterrupt:
                 live.stop()
+                context.close()
                 return
             except Exception as e:
                 for remaining in range(refresh_interval, 0, -1):

@@ -3,6 +3,7 @@ from typing import Optional
 
 from src.analysis import odds_to_price
 
+
 def visualize_by_day(u: Optional[float] = 1.0):
     """
     Analyze profit/loss and risk by day from wagers CSV.

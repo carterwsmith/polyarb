@@ -30,9 +30,22 @@ from src.constants import (
     WAGERS_PATH,
     ODDS_URL,
     PolymarketWagerStatus,
+    POLYMARKET_URL,
     NBA_TEAM_TO_POLYMARKET_ABBREVIATION,
 )
-from src.wager import init_browser_context, place_wagers, PolymarketBrowserContext
+from src.browser import (
+    init_browser_context,
+)
+from src.draftkings import (
+    DraftKingsBrowserContext,
+    DraftKingsElement,
+    extract_draftkings_context,
+)
+from src.polymarket import (
+    extract_polymarket_context,
+    place_wagers, 
+    PolymarketBrowserContext
+)
 
 
 class PolymarketOdds:
@@ -265,7 +278,7 @@ def should_wager(book_odds: int, polymarket_odds: int) -> bool:
 
 
 def process_odds_data(
-    book_odds: pd.DataFrame,
+    book_odds: List[DraftKingsElement],
     polymarket_odds: List[PolymarketOdds],
     teams_list: Optional[List[str]] = None,
 ) -> pd.DataFrame:
@@ -281,24 +294,25 @@ def process_odds_data(
         pd.DataFrame: DataFrame of opportunities
     """
     rows = []
-    for i, row in book_odds.iterrows():
-        if teams_list and row["Team"] not in teams_list:
-            print(f"Skipping {row['Team']}, not in teams")
+    for i in book_odds:
+        if teams_list and i.team not in teams_list:
+            #print(f"Skipping {i.team}, not in teams")
             continue
 
-        team: str = row["Team"]
+        team: str = i.team
 
         try:
-            book_odds_val: int = int(row["Moneyline"].replace("−", "-"))
+            book_odds_val: int = i.moneyline()
+            assert book_odds_val
         except:
-            print(f"Skipping {row['Team']}, invalid odds")
+            #print(f"Skipping {i.team}, invalid odds", i.odds_element.text) # can cause stale exc
             continue
         price: float | None = find_team_polymarket_price(
             team=team,
             listings=polymarket_odds,
         )
         if price is None or price > 1 or price == 0:
-            print(f"Skipping {row['Team']}, invalid price")
+            #print(f"Skipping {i.team}, invalid price")
             continue
         price_as_odds: int = price_to_american_odds(price)
 
@@ -366,7 +380,18 @@ def main(teams_list: Optional[List[str]] = None) -> pd.DataFrame:
     """
     console = Console()
 
-    context = init_browser_context()
+    context: PolymarketBrowserContext = init_browser_context(
+        extract=extract_polymarket_context,
+        start_url=POLYMARKET_URL,
+    )
+
+    dk_context: DraftKingsBrowserContext = init_browser_context(
+        extract=extract_draftkings_context,
+        start_url=ODDS_URL,
+        headless=True,
+        manual=False,
+        debug_port=9223,
+    )
 
     with Progress(
         SpinnerColumn(),
@@ -379,7 +404,8 @@ def main(teams_list: Optional[List[str]] = None) -> pd.DataFrame:
         progress.update(poly_task, description="[green]✓ [white]Scraped Polymarket")
 
         book_task = progress.add_task("Scraping DraftKings...", total=1)
-        book_odds = scrape_odds()
+        #book_odds = scrape_odds()
+        book_odds = dk_context.game_elements
         progress.advance(book_task)
         progress.update(book_task, description="[green]✓ [white]Scraped DraftKings")
 
@@ -432,7 +458,18 @@ def live(
     layout.split(Layout(progress, name="status"), Layout(name="table"))
     layout["status"].size = 1
 
-    context = init_browser_context()
+    context: PolymarketBrowserContext = init_browser_context(
+        extract=extract_polymarket_context,
+        start_url=POLYMARKET_URL,
+    )
+
+    dk_context: DraftKingsBrowserContext = init_browser_context(
+        extract=extract_draftkings_context,
+        start_url=ODDS_URL,
+        headless=True, # must be true
+        manual=False,
+        debug_port=9223,
+    )
 
     i = 0
     no_games_count = 0
@@ -472,22 +509,23 @@ def live(
 
                 no_games_count = 0
 
-                if refresh_count >= 5:
+                if refresh_count >= 2:
                     progress.update(status_task, description="Refreshing browser...")
                     context.refresh()
+                    dk_context.refresh()
                     refresh_count = 0
 
                 progress.update(status_task, description="Scraping Polymarket...")
                 polymarket_odds = get_polymarket(context)
 
                 progress.update(status_task, description="Scraping DraftKings...")
-                book_odds = scrape_odds()
+                book_odds = dk_context.game_elements
 
                 refresh_count += 1
 
                 diffs = process_odds_data(book_odds, polymarket_odds, live_teams)
                 opportunities = diffs[diffs["Wager"] == True].copy()
-                teams_evaluated = len(book_odds[book_odds["Team"].isin(live_teams)])
+                teams_evaluated = len([game for game in book_odds if game.team in live_teams])
 
                 if not opportunities.empty:
                     existing = pd.read_csv(csv_path)
@@ -517,6 +555,7 @@ def live(
                     ]
 
                     if dry_run:
+                        # TODO: swallow SettingWithCopyWarning
                         new_opps["Wager Placed"] = PolymarketWagerStatus.DRY_RUN.value
                     else:
                         # Place wagers

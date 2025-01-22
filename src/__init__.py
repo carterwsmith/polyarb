@@ -6,4 +6,4 @@ from . import analysis
 from . import constants
 from . import games
 from . import sandbox
-from . import wager
+from . import polymarket

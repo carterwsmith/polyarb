@@ -1,9 +1,5 @@
 """
 Selenium resources for interacting with the Polymarket NBA page.
-
-BEFORE RUNNING:
-Start Chrome with remote debugging and VPN active (via extension):
-`/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222`
 """
 
 from datetime import datetime
@@ -16,14 +12,15 @@ import pandas as pd
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from src.browser import (
+    BrowserContext,
+)
 from src.constants import (
-    POLYMARKET_URL,
     NBA_TEAM_TO_POLYMARKET_ABBREVIATION,
     PolymarketWagerStatus,
 )
@@ -106,7 +103,7 @@ class PolymarketGameDOMElement:
         return f"{self.away_team_abbr} ({prices[0]}¢) at {self.home_team_abbr} ({prices[1]}¢)"
 
 
-class PolymarketBrowserContext:
+class PolymarketBrowserContext(BrowserContext):
     """
     Holds the browser context for the Polymarket NBA page.
     """
@@ -117,41 +114,18 @@ class PolymarketBrowserContext:
         game_elements: List[PolymarketGameDOMElement],
         bet_panel: PolymarketBetPanelDOMElement,
     ):
-        self.browser = browser
+        super().__init__(browser)
         self.game_elements = game_elements
         self.bet_panel = bet_panel
 
     def refresh(self) -> None:
-        """
-        Refresh the browser context.
-        """
-        self.browser.refresh()
-
-    def close(self) -> None:
-        """
-        Close the browser.
-        """
-        self.browser.quit()
-
-
-def get_browser() -> webdriver.Chrome:
-    """
-    Get a Chrome browser with remote debugging enabled.
-
-    Returns:
-        webdriver.Chrome: Chrome browser
-    """
-    # TODO: add timeout
-    chrome_options = Options()
-    chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-    return webdriver.Chrome(options=chrome_options)
-
-
-def go_to_nba_page(browser: webdriver.Chrome) -> None:
-    """
-    Navigate to the NBA page on Polymarket.
-    """
-    browser.get(POLYMARKET_URL)
+        """Override refresh to click first game element."""
+        super().refresh()
+        new_context = extract_polymarket_context(self.browser)
+        self.game_elements = new_context.game_elements
+        self.bet_panel = new_context.bet_panel
+        if self.game_elements:
+            self.game_elements[0].away_team_button.click()
 
 
 def get_date_section_text(datetime: datetime = datetime.today()) -> str:
@@ -276,7 +250,7 @@ def place_wagers(
     return results
 
 
-def extract(browser: webdriver.Chrome) -> PolymarketBrowserContext:
+def extract_polymarket_context(browser: webdriver.Chrome) -> PolymarketBrowserContext:
     """
     Extract the browser context from the Polymarket NBA page.
 
@@ -335,11 +309,21 @@ def extract(browser: webdriver.Chrome) -> PolymarketBrowserContext:
         column_wrapper = browser.find_element(By.ID, "column-wrapper")
         immediate_children = column_wrapper.find_elements(By.XPATH, "./div")
         container = immediate_children[-1]
-    order_toggle = [
-        b
-        for b in container.find_elements(By.CSS_SELECTOR, "button")
-        if "Market" in b.text or "Limit" in b.text
-    ][0]
+    try:
+        order_toggle = [
+            b
+            for b in container.find_elements(By.CSS_SELECTOR, "button")
+            if "Market" in b.text or "Limit" in b.text
+        ][0]
+    except IndexError:
+        # weird edge case where a game from yesterday shows up
+        game_lis[0].click()
+        game_lis[0].click()
+        order_toggle = [
+            b
+            for b in container.find_elements(By.CSS_SELECTOR, "button")
+            if "Market" in b.text or "Limit" in b.text
+        ][0]
     assert order_toggle
     amount_field = container.find_element(By.CSS_SELECTOR, "input[placeholder='$0']")
     assert amount_field
@@ -372,30 +356,3 @@ def extract(browser: webdriver.Chrome) -> PolymarketBrowserContext:
         game_elements=game_elements,
         bet_panel=bet_panel,
     )
-
-
-def init_browser_context() -> PolymarketBrowserContext:
-    """
-    CLI wrapper to get the browser context for the Polymarket NBA page.
-
-    Returns:
-        PolymarketBrowserContext: Browser context
-    """
-    browser = get_browser()
-
-    if browser is None:
-        print("Failed to get remote debugging browser.")
-        exit(1)
-
-    if browser.current_url != POLYMARKET_URL:
-        go_to_nba_page(browser)
-
-    i = input("Authenticate with Polymarket then press (y) to continue ")
-    if i != "y":
-        print("Exiting...")
-        browser.quit()
-        exit(1)
-
-    context = extract(browser)
-
-    return context

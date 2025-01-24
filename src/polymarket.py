@@ -19,10 +19,12 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from src.browser import (
     BrowserContext,
+    init_browser_context,
 )
 from src.constants import (
     NBA_TEAM_TO_POLYMARKET_ABBREVIATION,
     PolymarketWagerStatus,
+    POLYMARKET_URL,
 )
 
 
@@ -173,6 +175,82 @@ def float_to_cents(f: float) -> int:
     return math.floor(int(f * 100))
 
 
+def sign_wager(
+    context: PolymarketBrowserContext,
+) -> bool:
+    desired_title = "MetaMask"
+
+    # Find the signature window and switch to it
+    for wh in context.browser.window_handles:
+        context.browser.switch_to.window(wh)
+        try:
+            if context.browser.title == desired_title:
+                break
+        except Exception:
+            # print('1')
+            return False
+
+    # Click button with aria-label "Scroll down"
+    try:
+        context.browser.execute_script(
+            """
+            const buttons = document.getElementsByTagName('button');
+            for (let button of buttons) {
+                if (button.getAttribute('aria-label') === 'Scroll down') {
+                    button.click();
+                    break;
+                }
+            }
+        """
+        )
+        time.sleep(1)
+    except Exception:
+        # print('2')
+        return False
+
+    # Click the button with data-testid "confirm-footer-button"
+    try:
+        context.browser.execute_script(
+            """
+            const buttons = document.getElementsByTagName('button');
+            for (let button of buttons) {
+                if (button.getAttribute('data-testid') === 'confirm-footer-button') {
+                    button.click();
+                    break;
+                }
+            }
+        """
+        )
+        time.sleep(5)
+    except Exception:
+        # print('3')
+        return False
+
+    desired_main_title = "Polymarket"
+    # Find the main window and switch to it
+    for wh in context.browser.window_handles:
+        context.browser.switch_to.window(wh)
+        try:
+            if desired_main_title in context.browser.title:
+                break
+        except Exception:
+            # print('4')
+            return False
+
+    # Wait until "bought" is in buy button text (timeout 5 seconds)
+    attempts = 0
+    try:
+        while attempts < 5:
+            time.sleep(1)
+            if "bought" in context.bet_panel.buy_button.text.lower():
+                return True
+            attempts += 1
+        return False
+    except Exception:
+        # print('5')
+        return False
+
+
 def place_wagers(
     df: pd.DataFrame,
     context: PolymarketBrowserContext,
@@ -213,13 +291,15 @@ def place_wagers(
 
         # Calculate amount to wager and enter in field
         amount_dollars = unit * row["Kelly Size"] * row["Polymarket Price"]
-        if amount_dollars < row["Polymarket Price"]:
+        # per_wager_max_dollars = 5
+        if amount_dollars < 1 or amount_dollars < row["Polymarket Price"]:
             results.append(PolymarketWagerStatus.WAGER_TOO_SMALL)
             continue
+        # if amount_dollars > per_wager_max_dollars:
+        #     amount_dollars = per_wager_max_dollars
         context.bet_panel.amount_field.send_keys(str(amount_dollars))
 
         # Assert the team and price is correct
-        time.sleep(1)
         try:
             if not row["Team"] in context.bet_panel.root.text:
                 results.append(PolymarketWagerStatus.TEAM_NOT_SELECTED)
@@ -228,6 +308,7 @@ def place_wagers(
                 str(float_to_cents(row["Polymarket Price"]))
                 in context.bet_panel.price_field.text
             ):
+                # TODO: recalculate a fair price and check if available
                 results.append(PolymarketWagerStatus.PRICE_CHANGED)
                 continue
             # Click the buy button
@@ -239,15 +320,26 @@ def place_wagers(
             if "insufficient balance" in context.bet_panel.root.text.lower():
                 results.append(PolymarketWagerStatus.INSUFFICIENT_BALANCE)
                 continue
-            results.append(PolymarketWagerStatus.PLACED)
+
+            if not sign_wager(context):
+                results.append(PolymarketWagerStatus.SIGNATURE_FAILED)
+                continue
+            else:
+                results.append(PolymarketWagerStatus.PLACED)
         except:
             # TODO: size down bet to match desired price, change field in saved wager
             results.append(PolymarketWagerStatus.EXCEPTION)
 
-        # Random sleep between wagers
-        time.sleep(random.uniform(1, 5))
-
     return results
+
+
+def init_polymarket_session() -> PolymarketBrowserContext:
+    context: PolymarketBrowserContext = init_browser_context(
+        extract=extract_polymarket_context,
+        start_url=POLYMARKET_URL,
+    )
+
+    return context
 
 
 def extract_polymarket_context(browser: webdriver.Chrome) -> PolymarketBrowserContext:

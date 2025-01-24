@@ -4,7 +4,7 @@ Constants used in the project.
 
 from enum import StrEnum
 
-from src.utils import get_git_revision_short_hash
+from src.utils import get_git_revision_short_hash_or_latest
 
 
 class PolymarketWagerStatus(StrEnum):
@@ -14,6 +14,7 @@ class PolymarketWagerStatus(StrEnum):
     PRICE_CHANGED = "Price changed"
     DRY_RUN = "Dry run"
     INSUFFICIENT_BALANCE = "Insufficient balance"
+    SIGNATURE_FAILED = "Signature failed"
     EXCEPTION = "Exception"
 
 
@@ -22,7 +23,7 @@ SUCCESS_STATUSES = [
 ]
 
 OUTCOMES_PATH = "tmp/outcomes.json"
-WAGERS_PATH = f"tmp/wagers_{get_git_revision_short_hash()}.csv"
+WAGERS_PATH = f"tmp/wagers_{get_git_revision_short_hash_or_latest()}.csv"
 
 POLYMARKET_URL = "https://polymarket.com/sports/nba/games"
 ODDS_URL = "https://sportsbook.draftkings.com/leagues/basketball/nba"

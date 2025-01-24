@@ -33,18 +33,17 @@ from src.constants import (
     POLYMARKET_URL,
     NBA_TEAM_TO_POLYMARKET_ABBREVIATION,
 )
-from src.browser import (
-    init_browser_context,
-)
 from src.draftkings import (
     DraftKingsBrowserContext,
     DraftKingsElement,
     extract_draftkings_context,
+    init_draftkings_session,
 )
 from src.polymarket import (
     extract_polymarket_context,
-    place_wagers, 
-    PolymarketBrowserContext
+    init_polymarket_session,
+    place_wagers,
+    PolymarketBrowserContext,
 )
 
 
@@ -296,7 +295,7 @@ def process_odds_data(
     rows = []
     for i in book_odds:
         if teams_list and i.team not in teams_list:
-            #print(f"Skipping {i.team}, not in teams")
+            # print(f"Skipping {i.team}, not in teams")
             continue
 
         team: str = i.team
@@ -305,14 +304,14 @@ def process_odds_data(
             book_odds_val: int = i.moneyline()
             assert book_odds_val
         except:
-            #print(f"Skipping {i.team}, invalid odds", i.odds_element.text) # can cause stale exc
+            # print(f"Skipping {i.team}, invalid odds", i.odds_element.text) # can cause stale exc
             continue
         price: float | None = find_team_polymarket_price(
             team=team,
             listings=polymarket_odds,
         )
         if price is None or price > 1 or price == 0:
-            #print(f"Skipping {i.team}, invalid price")
+            # print(f"Skipping {i.team}, invalid price")
             continue
         price_as_odds: int = price_to_american_odds(price)
 
@@ -380,39 +379,28 @@ def main(teams_list: Optional[List[str]] = None) -> pd.DataFrame:
     """
     console = Console()
 
-    context: PolymarketBrowserContext = init_browser_context(
-        extract=extract_polymarket_context,
-        start_url=POLYMARKET_URL,
-    )
+    with init_polymarket_session() as context, init_draftkings_session() as dk_context:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            console=console,
+        ) as progress:
+            poly_task = progress.add_task("Scraping Polymarket...", total=1)
+            polymarket_odds = get_polymarket(context)
+            progress.advance(poly_task)
+            progress.update(poly_task, description="[green]✓ [white]Scraped Polymarket")
 
-    dk_context: DraftKingsBrowserContext = init_browser_context(
-        extract=extract_draftkings_context,
-        start_url=ODDS_URL,
-        headless=True,
-        manual=False,
-        debug_port=9223,
-    )
+            book_task = progress.add_task("Scraping DraftKings...", total=1)
+            # book_odds = scrape_odds()
+            book_odds = dk_context.game_elements
+            progress.advance(book_task)
+            progress.update(book_task, description="[green]✓ [white]Scraped DraftKings")
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("{task.description}"),
-        console=console,
-    ) as progress:
-        poly_task = progress.add_task("Scraping Polymarket...", total=1)
-        polymarket_odds = get_polymarket(context)
-        progress.advance(poly_task)
-        progress.update(poly_task, description="[green]✓ [white]Scraped Polymarket")
-
-        book_task = progress.add_task("Scraping DraftKings...", total=1)
-        #book_odds = scrape_odds()
-        book_odds = dk_context.game_elements
-        progress.advance(book_task)
-        progress.update(book_task, description="[green]✓ [white]Scraped DraftKings")
-
-    return process_odds_data(book_odds, polymarket_odds, teams_list)
+            return process_odds_data(book_odds, polymarket_odds, teams_list)
 
 
 def live(
+    unit_size: float = 0.25,
     refresh_interval: int = 60,
     csv_path: str = WAGERS_PATH,
     teams_list: Optional[List[str]] = None,
@@ -458,18 +446,9 @@ def live(
     layout.split(Layout(progress, name="status"), Layout(name="table"))
     layout["status"].size = 1
 
-    context: PolymarketBrowserContext = init_browser_context(
-        extract=extract_polymarket_context,
-        start_url=POLYMARKET_URL,
-    )
+    context: PolymarketBrowserContext = init_polymarket_session()
 
-    dk_context: DraftKingsBrowserContext = init_browser_context(
-        extract=extract_draftkings_context,
-        start_url=ODDS_URL,
-        headless=True, # must be true
-        manual=False,
-        debug_port=9223,
-    )
+    dk_context: DraftKingsBrowserContext = init_draftkings_session()
 
     i = 0
     no_games_count = 0
@@ -525,7 +504,9 @@ def live(
 
                 diffs = process_odds_data(book_odds, polymarket_odds, live_teams)
                 opportunities = diffs[diffs["Wager"] == True].copy()
-                teams_evaluated = len([game for game in book_odds if game.team in live_teams])
+                teams_evaluated = len(
+                    [game for game in book_odds if game.team in live_teams]
+                )
 
                 if not opportunities.empty:
                     existing = pd.read_csv(csv_path)
@@ -558,10 +539,13 @@ def live(
                         # TODO: swallow SettingWithCopyWarning
                         new_opps["Wager Placed"] = PolymarketWagerStatus.DRY_RUN.value
                     else:
+                        progress.update(status_task, description="Placing wagers...")
                         # Place wagers
                         did_place = place_wagers(
                             df=new_opps,
                             context=context,
+                            unit=unit_size,
+                            dry_run=dry_run,
                         )
                         new_opps["Wager Placed"] = [
                             status.value for status in did_place

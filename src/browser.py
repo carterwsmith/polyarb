@@ -9,6 +9,7 @@ class BrowserContext:
     """
     Holds data for a browser context.
     """
+
     def __init__(self, browser: webdriver.Chrome):
         self.browser = browser
 
@@ -24,6 +25,12 @@ class BrowserContext:
         """
         self.browser.quit()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.browser.quit()
+
 
 def get_browser(headless: bool = False, debug_port: int = 9222) -> webdriver.Chrome:
     """
@@ -34,14 +41,16 @@ def get_browser(headless: bool = False, debug_port: int = 9222) -> webdriver.Chr
     """
     # Start Chrome process
     chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    subprocess.Popen([
-        chrome_path,
-        f"--remote-debugging-port={debug_port}",
-        "--no-first-run",  # Skip first run dialogs
-        "--no-default-browser-check",
-        "--headless" if headless else "",
-    ])
-    
+    subprocess.Popen(
+        [
+            chrome_path,
+            f"--remote-debugging-port={debug_port}",
+            "--no-first-run",  # Skip first run dialogs
+            "--no-default-browser-check",
+            "--headless" if headless else "",
+        ]
+    )
+
     # Wait for Chrome to start
     time.sleep(2)
 
@@ -49,13 +58,21 @@ def get_browser(headless: bool = False, debug_port: int = 9222) -> webdriver.Chr
     chrome_options.add_experimental_option("debuggerAddress", f"127.0.0.1:{debug_port}")
     return webdriver.Chrome(options=chrome_options)
 
+
 def go_to_page(browser: webdriver.Chrome, url: str) -> None:
     """
     Navigate to a page.
     """
     browser.get(url)
 
-def init_browser_context(extract: callable, start_url: str = None, headless: bool = False, manual: bool = True, debug_port: int = 9222) -> BrowserContext:
+
+def init_browser_context(
+    extract: callable,
+    start_url: str = None,
+    headless: bool = False,
+    manual: bool = True,
+    debug_port: int = 9222,
+) -> BrowserContext:
     """
     Return browser context extracted from a callable, which must accept a browser.
 
@@ -70,7 +87,7 @@ def init_browser_context(extract: callable, start_url: str = None, headless: boo
 
     if start_url:
         if browser.current_url != start_url:
-            print('going to page', start_url, 'from', browser.current_url)
+            #print("going to page", start_url, "from", browser.current_url)
             go_to_page(browser, start_url)
 
     if manual:

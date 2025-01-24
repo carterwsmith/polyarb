@@ -3,7 +3,7 @@ Resources for analysis of wager performance, reading from the wagers CSV file.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -36,7 +36,13 @@ def row_to_outcome(row: pd.Series) -> int:
     """
     outcomes = load_outcomes()
     date = datetime.fromtimestamp(row["Timestamp"]).strftime("%Y-%m-%d")
-    return outcomes[date][row["Team"]]
+    try:
+        return outcomes[date][row["Team"]]
+    except KeyError:
+        # Some games bleed into the next day
+        one_hour_earlier = datetime.fromtimestamp(row["Timestamp"]) - timedelta(hours=1)
+        new_date = one_hour_earlier.strftime("%Y-%m-%d")
+        return outcomes[new_date][row["Team"]]
 
 
 def load() -> pd.DataFrame:
@@ -194,8 +200,17 @@ def graph(df: pd.DataFrame) -> None:
         kelly_pl.append(running_pl)
         dates.append(datetime.fromtimestamp(row["Timestamp"]).strftime("%Y-%m-%d"))
 
+    # Calculate running profit/loss for placed bets only
+    placed_kelly_pl = []
+    running_placed_pl = 0
+    placed_df = df[df["Wager Placed"].isin(SUCCESS_STATUSES)]
+    for _, row in placed_df.iterrows():
+        if row["outcome"] == 1:
+            running_placed_pl += row["Kelly Size"]
+        running_placed_pl -= row["Kelly Size"] * row["price"]
+        placed_kelly_pl.append(running_placed_pl)
+
     # Calculate running total of equal weight profit/loss
-    # TODO: graph separate lines for actual placed wagers vs skipped wagers using SUCCESS_STATUSES
     equal_weight_pl = []
     running_equal_weight_pl = 0
     for _, row in df.iterrows():
@@ -203,13 +218,19 @@ def graph(df: pd.DataFrame) -> None:
         equal_weight_pl.append(running_equal_weight_pl)
 
     plt.figure(figsize=(10, 6))
-    plt.plot(range(len(kelly_pl)), kelly_pl, label="Kelly Criterion Profit/Loss")
+    plt.plot(
+        range(len(kelly_pl)), kelly_pl, label="Kelly Criterion (all)", linestyle="--"
+    )
     plt.plot(
         range(len(equal_weight_pl)),
         equal_weight_pl,
-        label="Equal Weight Profit/Loss",
+        label="Equal Weight (all)",
         color="orange",
-    )  # Different color for equal weight
+        linestyle="--",
+    )
+    plt.plot(
+        range(len(placed_kelly_pl)), placed_kelly_pl, label="Placed Bets", color="green"
+    )
 
     # Add vertical lines for each new day
     current_date = None

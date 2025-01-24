@@ -31,6 +31,39 @@
             <h2>API Documentation</h2>
                 <ul class="memberlist">
             <li>
+                    <a class="class" href="#PolymarketWagerStatus">PolymarketWagerStatus</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.PLACED">PLACED</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.TEAM_NOT_SELECTED">TEAM_NOT_SELECTED</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.WAGER_TOO_SMALL">WAGER_TOO_SMALL</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.PRICE_CHANGED">PRICE_CHANGED</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.DRY_RUN">DRY_RUN</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.INSUFFICIENT_BALANCE">INSUFFICIENT_BALANCE</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.SIGNATURE_FAILED">SIGNATURE_FAILED</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#PolymarketWagerStatus.EXCEPTION">EXCEPTION</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="variable" href="#SUCCESS_STATUSES">SUCCESS_STATUSES</a>
+            </li>
+            <li>
                     <a class="variable" href="#OUTCOMES_PATH">OUTCOMES_PATH</a>
             </li>
             <li>
@@ -72,50 +105,202 @@
 </span><span id="L-2"><a href="#L-2"><span class="linenos"> 2</span></a><span class="sd">Constants used in the project.</span>
 </span><span id="L-3"><a href="#L-3"><span class="linenos"> 3</span></a><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="L-4"><a href="#L-4"><span class="linenos"> 4</span></a>
-</span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a><span class="kn">from</span> <span class="nn">src.utils</span> <span class="kn">import</span> <span class="n">get_git_revision_short_hash</span>
+</span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a><span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">StrEnum</span>
 </span><span id="L-6"><a href="#L-6"><span class="linenos"> 6</span></a>
-</span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a><span class="n">OUTCOMES_PATH</span> <span class="o">=</span> <span class="s2">&quot;tmp/outcomes.json&quot;</span>
-</span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a><span class="n">WAGERS_PATH</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tmp/wagers_</span><span class="si">{</span><span class="n">get_git_revision_short_hash</span><span class="p">()</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+</span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a><span class="kn">from</span> <span class="nn">src.utils</span> <span class="kn">import</span> <span class="n">get_git_revision_short_hash_or_latest</span>
+</span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a>
 </span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a>
-</span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a><span class="n">POLYMARKET_URL</span> <span class="o">=</span> <span class="s2">&quot;https://polymarket.com/sports/nba/games&quot;</span>
-</span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a><span class="n">ODDS_URL</span> <span class="o">=</span> <span class="s2">&quot;https://sportsbook.draftkings.com/leagues/basketball/nba&quot;</span>
-</span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a>
-</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a><span class="n">NBA_TEAM_TO_POLYMARKET_ABBREVIATION</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="L-14"><a href="#L-14"><span class="linenos">14</span></a>    <span class="s2">&quot;Cavaliers&quot;</span><span class="p">:</span> <span class="s2">&quot;CLE&quot;</span><span class="p">,</span>
-</span><span id="L-15"><a href="#L-15"><span class="linenos">15</span></a>    <span class="s2">&quot;Thunder&quot;</span><span class="p">:</span> <span class="s2">&quot;OKC&quot;</span><span class="p">,</span>
-</span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a>    <span class="s2">&quot;Celtics&quot;</span><span class="p">:</span> <span class="s2">&quot;BOS&quot;</span><span class="p">,</span>
-</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a>    <span class="s2">&quot;Rockets&quot;</span><span class="p">:</span> <span class="s2">&quot;HOU&quot;</span><span class="p">,</span>
-</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a>    <span class="s2">&quot;Knicks&quot;</span><span class="p">:</span> <span class="s2">&quot;NYK&quot;</span><span class="p">,</span>
-</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a>    <span class="s2">&quot;Grizzlies&quot;</span><span class="p">:</span> <span class="s2">&quot;MEM&quot;</span><span class="p">,</span>
-</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a>    <span class="s2">&quot;Nuggets&quot;</span><span class="p">:</span> <span class="s2">&quot;DEN&quot;</span><span class="p">,</span>
-</span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a>    <span class="s2">&quot;Mavericks&quot;</span><span class="p">:</span> <span class="s2">&quot;DAL&quot;</span><span class="p">,</span>
-</span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a>    <span class="s2">&quot;Magic&quot;</span><span class="p">:</span> <span class="s2">&quot;ORL&quot;</span><span class="p">,</span>
-</span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a>    <span class="s2">&quot;Lakers&quot;</span><span class="p">:</span> <span class="s2">&quot;LAL&quot;</span><span class="p">,</span>
-</span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a>    <span class="s2">&quot;Bucks&quot;</span><span class="p">:</span> <span class="s2">&quot;MIL&quot;</span><span class="p">,</span>
-</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a>    <span class="s2">&quot;Timberwolves&quot;</span><span class="p">:</span> <span class="s2">&quot;MIN&quot;</span><span class="p">,</span>
-</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a>    <span class="s2">&quot;Clippers&quot;</span><span class="p">:</span> <span class="s2">&quot;LAC&quot;</span><span class="p">,</span>
-</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a>    <span class="s2">&quot;Heat&quot;</span><span class="p">:</span> <span class="s2">&quot;MIA&quot;</span><span class="p">,</span>
-</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a>    <span class="s2">&quot;Pacers&quot;</span><span class="p">:</span> <span class="s2">&quot;IND&quot;</span><span class="p">,</span>
-</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a>    <span class="s2">&quot;Warriors&quot;</span><span class="p">:</span> <span class="s2">&quot;GSW&quot;</span><span class="p">,</span>
-</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a>    <span class="s2">&quot;Pistons&quot;</span><span class="p">:</span> <span class="s2">&quot;DET&quot;</span><span class="p">,</span>
-</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a>    <span class="s2">&quot;Hawks&quot;</span><span class="p">:</span> <span class="s2">&quot;ATL&quot;</span><span class="p">,</span>
-</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a>    <span class="s2">&quot;Spurs&quot;</span><span class="p">:</span> <span class="s2">&quot;TOT&quot;</span><span class="p">,</span>  <span class="c1"># might change?</span>
-</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a>    <span class="s2">&quot;Kings&quot;</span><span class="p">:</span> <span class="s2">&quot;SAC&quot;</span><span class="p">,</span>
-</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a>    <span class="s2">&quot;Suns&quot;</span><span class="p">:</span> <span class="s2">&quot;PHX&quot;</span><span class="p">,</span>
-</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a>    <span class="s2">&quot;Bulls&quot;</span><span class="p">:</span> <span class="s2">&quot;CHI&quot;</span><span class="p">,</span>
-</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a>    <span class="s2">&quot;76ers&quot;</span><span class="p">:</span> <span class="s2">&quot;PHI&quot;</span><span class="p">,</span>
-</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a>    <span class="s2">&quot;Nets&quot;</span><span class="p">:</span> <span class="s2">&quot;BKN&quot;</span><span class="p">,</span>
-</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a>    <span class="s2">&quot;Trail Blazers&quot;</span><span class="p">:</span> <span class="s2">&quot;POR&quot;</span><span class="p">,</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a>    <span class="s2">&quot;Jazz&quot;</span><span class="p">:</span> <span class="s2">&quot;UTA&quot;</span><span class="p">,</span>
-</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a>    <span class="s2">&quot;Hornets&quot;</span><span class="p">:</span> <span class="s2">&quot;CHA&quot;</span><span class="p">,</span>
-</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a>    <span class="s2">&quot;Raptors&quot;</span><span class="p">:</span> <span class="s2">&quot;TOR&quot;</span><span class="p">,</span>
-</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a>    <span class="s2">&quot;Pelicans&quot;</span><span class="p">:</span> <span class="s2">&quot;NOP&quot;</span><span class="p">,</span>
-</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a>    <span class="s2">&quot;Wizards&quot;</span><span class="p">:</span> <span class="s2">&quot;WAS&quot;</span><span class="p">,</span>
-</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a><span class="p">}</span>
+</span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a><span class="k">class</span> <span class="nc">PolymarketWagerStatus</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
+</span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a>    <span class="n">PLACED</span> <span class="o">=</span> <span class="s2">&quot;Placed&quot;</span>
+</span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a>    <span class="n">TEAM_NOT_SELECTED</span> <span class="o">=</span> <span class="s2">&quot;Team not selected&quot;</span>
+</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a>    <span class="n">WAGER_TOO_SMALL</span> <span class="o">=</span> <span class="s2">&quot;Wager too small&quot;</span>
+</span><span id="L-14"><a href="#L-14"><span class="linenos">14</span></a>    <span class="n">PRICE_CHANGED</span> <span class="o">=</span> <span class="s2">&quot;Price changed&quot;</span>
+</span><span id="L-15"><a href="#L-15"><span class="linenos">15</span></a>    <span class="n">DRY_RUN</span> <span class="o">=</span> <span class="s2">&quot;Dry run&quot;</span>
+</span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a>    <span class="n">INSUFFICIENT_BALANCE</span> <span class="o">=</span> <span class="s2">&quot;Insufficient balance&quot;</span>
+</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a>    <span class="n">SIGNATURE_FAILED</span> <span class="o">=</span> <span class="s2">&quot;Signature failed&quot;</span>
+</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a>    <span class="n">EXCEPTION</span> <span class="o">=</span> <span class="s2">&quot;Exception&quot;</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a>
+</span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a><span class="n">SUCCESS_STATUSES</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a>    <span class="n">PolymarketWagerStatus</span><span class="o">.</span><span class="n">PLACED</span><span class="p">,</span>
+</span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a><span class="p">]</span>
+</span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a>
+</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a><span class="n">OUTCOMES_PATH</span> <span class="o">=</span> <span class="s2">&quot;tmp/outcomes.json&quot;</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a><span class="n">WAGERS_PATH</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tmp/wagers_</span><span class="si">{</span><span class="n">get_git_revision_short_hash_or_latest</span><span class="p">()</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a>
+</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a><span class="n">POLYMARKET_URL</span> <span class="o">=</span> <span class="s2">&quot;https://polymarket.com/sports/nba/games&quot;</span>
+</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a><span class="n">ODDS_URL</span> <span class="o">=</span> <span class="s2">&quot;https://sportsbook.draftkings.com/leagues/basketball/nba&quot;</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a>
+</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a><span class="n">NBA_TEAM_TO_POLYMARKET_ABBREVIATION</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a>    <span class="s2">&quot;Cavaliers&quot;</span><span class="p">:</span> <span class="s2">&quot;CLE&quot;</span><span class="p">,</span>
+</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a>    <span class="s2">&quot;Thunder&quot;</span><span class="p">:</span> <span class="s2">&quot;OKC&quot;</span><span class="p">,</span>
+</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a>    <span class="s2">&quot;Celtics&quot;</span><span class="p">:</span> <span class="s2">&quot;BOS&quot;</span><span class="p">,</span>
+</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a>    <span class="s2">&quot;Rockets&quot;</span><span class="p">:</span> <span class="s2">&quot;HOU&quot;</span><span class="p">,</span>
+</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a>    <span class="s2">&quot;Knicks&quot;</span><span class="p">:</span> <span class="s2">&quot;NYK&quot;</span><span class="p">,</span>
+</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a>    <span class="s2">&quot;Grizzlies&quot;</span><span class="p">:</span> <span class="s2">&quot;MEM&quot;</span><span class="p">,</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a>    <span class="s2">&quot;Nuggets&quot;</span><span class="p">:</span> <span class="s2">&quot;DEN&quot;</span><span class="p">,</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a>    <span class="s2">&quot;Mavericks&quot;</span><span class="p">:</span> <span class="s2">&quot;DAL&quot;</span><span class="p">,</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a>    <span class="s2">&quot;Magic&quot;</span><span class="p">:</span> <span class="s2">&quot;ORL&quot;</span><span class="p">,</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a>    <span class="s2">&quot;Lakers&quot;</span><span class="p">:</span> <span class="s2">&quot;LAL&quot;</span><span class="p">,</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a>    <span class="s2">&quot;Bucks&quot;</span><span class="p">:</span> <span class="s2">&quot;MIL&quot;</span><span class="p">,</span>
+</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a>    <span class="s2">&quot;Timberwolves&quot;</span><span class="p">:</span> <span class="s2">&quot;MIN&quot;</span><span class="p">,</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a>    <span class="s2">&quot;Clippers&quot;</span><span class="p">:</span> <span class="s2">&quot;LAC&quot;</span><span class="p">,</span>
+</span><span id="L-45"><a href="#L-45"><span class="linenos">45</span></a>    <span class="s2">&quot;Heat&quot;</span><span class="p">:</span> <span class="s2">&quot;MIA&quot;</span><span class="p">,</span>
+</span><span id="L-46"><a href="#L-46"><span class="linenos">46</span></a>    <span class="s2">&quot;Pacers&quot;</span><span class="p">:</span> <span class="s2">&quot;IND&quot;</span><span class="p">,</span>
+</span><span id="L-47"><a href="#L-47"><span class="linenos">47</span></a>    <span class="s2">&quot;Warriors&quot;</span><span class="p">:</span> <span class="s2">&quot;GSW&quot;</span><span class="p">,</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos">48</span></a>    <span class="s2">&quot;Pistons&quot;</span><span class="p">:</span> <span class="s2">&quot;DET&quot;</span><span class="p">,</span>
+</span><span id="L-49"><a href="#L-49"><span class="linenos">49</span></a>    <span class="s2">&quot;Hawks&quot;</span><span class="p">:</span> <span class="s2">&quot;ATL&quot;</span><span class="p">,</span>
+</span><span id="L-50"><a href="#L-50"><span class="linenos">50</span></a>    <span class="s2">&quot;Spurs&quot;</span><span class="p">:</span> <span class="s2">&quot;TOT&quot;</span><span class="p">,</span>  <span class="c1"># might change?</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a>    <span class="s2">&quot;Kings&quot;</span><span class="p">:</span> <span class="s2">&quot;SAC&quot;</span><span class="p">,</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a>    <span class="s2">&quot;Suns&quot;</span><span class="p">:</span> <span class="s2">&quot;PHX&quot;</span><span class="p">,</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a>    <span class="s2">&quot;Bulls&quot;</span><span class="p">:</span> <span class="s2">&quot;CHI&quot;</span><span class="p">,</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a>    <span class="s2">&quot;76ers&quot;</span><span class="p">:</span> <span class="s2">&quot;PHI&quot;</span><span class="p">,</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a>    <span class="s2">&quot;Nets&quot;</span><span class="p">:</span> <span class="s2">&quot;BKN&quot;</span><span class="p">,</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a>    <span class="s2">&quot;Trail Blazers&quot;</span><span class="p">:</span> <span class="s2">&quot;POR&quot;</span><span class="p">,</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a>    <span class="s2">&quot;Jazz&quot;</span><span class="p">:</span> <span class="s2">&quot;UTA&quot;</span><span class="p">,</span>
+</span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a>    <span class="s2">&quot;Hornets&quot;</span><span class="p">:</span> <span class="s2">&quot;CHA&quot;</span><span class="p">,</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="s2">&quot;Raptors&quot;</span><span class="p">:</span> <span class="s2">&quot;TOR&quot;</span><span class="p">,</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>    <span class="s2">&quot;Pelicans&quot;</span><span class="p">:</span> <span class="s2">&quot;NOP&quot;</span><span class="p">,</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a>    <span class="s2">&quot;Wizards&quot;</span><span class="p">:</span> <span class="s2">&quot;WAS&quot;</span><span class="p">,</span>
+</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a><span class="p">}</span>
 </span></pre></div>
 
 
             </section>
+                <section id="PolymarketWagerStatus">
+                            <input id="PolymarketWagerStatus-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">PolymarketWagerStatus</span><wbr>(<span class="base">enum.StrEnum</span>):
+
+                <label class="view-source-button" for="PolymarketWagerStatus-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="PolymarketWagerStatus-11"><a href="#PolymarketWagerStatus-11"><span class="linenos">11</span></a><span class="k">class</span> <span class="nc">PolymarketWagerStatus</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
+</span><span id="PolymarketWagerStatus-12"><a href="#PolymarketWagerStatus-12"><span class="linenos">12</span></a>    <span class="n">PLACED</span> <span class="o">=</span> <span class="s2">&quot;Placed&quot;</span>
+</span><span id="PolymarketWagerStatus-13"><a href="#PolymarketWagerStatus-13"><span class="linenos">13</span></a>    <span class="n">TEAM_NOT_SELECTED</span> <span class="o">=</span> <span class="s2">&quot;Team not selected&quot;</span>
+</span><span id="PolymarketWagerStatus-14"><a href="#PolymarketWagerStatus-14"><span class="linenos">14</span></a>    <span class="n">WAGER_TOO_SMALL</span> <span class="o">=</span> <span class="s2">&quot;Wager too small&quot;</span>
+</span><span id="PolymarketWagerStatus-15"><a href="#PolymarketWagerStatus-15"><span class="linenos">15</span></a>    <span class="n">PRICE_CHANGED</span> <span class="o">=</span> <span class="s2">&quot;Price changed&quot;</span>
+</span><span id="PolymarketWagerStatus-16"><a href="#PolymarketWagerStatus-16"><span class="linenos">16</span></a>    <span class="n">DRY_RUN</span> <span class="o">=</span> <span class="s2">&quot;Dry run&quot;</span>
+</span><span id="PolymarketWagerStatus-17"><a href="#PolymarketWagerStatus-17"><span class="linenos">17</span></a>    <span class="n">INSUFFICIENT_BALANCE</span> <span class="o">=</span> <span class="s2">&quot;Insufficient balance&quot;</span>
+</span><span id="PolymarketWagerStatus-18"><a href="#PolymarketWagerStatus-18"><span class="linenos">18</span></a>    <span class="n">SIGNATURE_FAILED</span> <span class="o">=</span> <span class="s2">&quot;Signature failed&quot;</span>
+</span><span id="PolymarketWagerStatus-19"><a href="#PolymarketWagerStatus-19"><span class="linenos">19</span></a>    <span class="n">EXCEPTION</span> <span class="o">=</span> <span class="s2">&quot;Exception&quot;</span>
+</span></pre></div>
+
+
+    
+
+                            <div id="PolymarketWagerStatus.PLACED" class="classattr">
+                                <div class="attr variable">
+            <span class="name">PLACED</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.PLACED">PolymarketWagerStatus.PLACED</a>: &#39;Placed&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.PLACED"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.TEAM_NOT_SELECTED" class="classattr">
+                                <div class="attr variable">
+            <span class="name">TEAM_NOT_SELECTED</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.TEAM_NOT_SELECTED">PolymarketWagerStatus.TEAM_NOT_SELECTED</a>: &#39;Team not selected&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.TEAM_NOT_SELECTED"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.WAGER_TOO_SMALL" class="classattr">
+                                <div class="attr variable">
+            <span class="name">WAGER_TOO_SMALL</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.WAGER_TOO_SMALL">PolymarketWagerStatus.WAGER_TOO_SMALL</a>: &#39;Wager too small&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.WAGER_TOO_SMALL"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.PRICE_CHANGED" class="classattr">
+                                <div class="attr variable">
+            <span class="name">PRICE_CHANGED</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.PRICE_CHANGED">PolymarketWagerStatus.PRICE_CHANGED</a>: &#39;Price changed&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.PRICE_CHANGED"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.DRY_RUN" class="classattr">
+                                <div class="attr variable">
+            <span class="name">DRY_RUN</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.DRY_RUN">PolymarketWagerStatus.DRY_RUN</a>: &#39;Dry run&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.DRY_RUN"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.INSUFFICIENT_BALANCE" class="classattr">
+                                <div class="attr variable">
+            <span class="name">INSUFFICIENT_BALANCE</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.INSUFFICIENT_BALANCE">PolymarketWagerStatus.INSUFFICIENT_BALANCE</a>: &#39;Insufficient balance&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.INSUFFICIENT_BALANCE"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.SIGNATURE_FAILED" class="classattr">
+                                <div class="attr variable">
+            <span class="name">SIGNATURE_FAILED</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.SIGNATURE_FAILED">PolymarketWagerStatus.SIGNATURE_FAILED</a>: &#39;Signature failed&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.SIGNATURE_FAILED"></a>
+    
+    
+
+                            </div>
+                            <div id="PolymarketWagerStatus.EXCEPTION" class="classattr">
+                                <div class="attr variable">
+            <span class="name">EXCEPTION</span>        =
+<span class="default_value">&lt;<a href="#PolymarketWagerStatus.EXCEPTION">PolymarketWagerStatus.EXCEPTION</a>: &#39;Exception&#39;&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#PolymarketWagerStatus.EXCEPTION"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="SUCCESS_STATUSES">
+                    <div class="attr variable">
+            <span class="name">SUCCESS_STATUSES</span>        =
+<span class="default_value">[&lt;<a href="#PolymarketWagerStatus.PLACED">PolymarketWagerStatus.PLACED</a>: &#39;Placed&#39;&gt;]</span>
+
+        
+    </div>
+    <a class="headerlink" href="#SUCCESS_STATUSES"></a>
+    
+    
+
+                </section>
                 <section id="OUTCOMES_PATH">
                     <div class="attr variable">
             <span class="name">OUTCOMES_PATH</span>        =
@@ -131,7 +316,7 @@
                 <section id="WAGERS_PATH">
                     <div class="attr variable">
             <span class="name">WAGERS_PATH</span>        =
-<span class="default_value">&#39;tmp/wagers_b220417.csv&#39;</span>
+<span class="default_value">&#39;tmp/wagers_859a9f4.csv&#39;</span>
 
         
     </div>
@@ -155,7 +340,7 @@
                 <section id="ODDS_URL">
                     <div class="attr variable">
             <span class="name">ODDS_URL</span>        =
-<span class="default_value">&#39;https://sportsbook.draftkings.com/leagues/basketball/nba&#39;</span>
+<span class="default_value">&#39;https://sportsbook<a href="draftkings.html">src.draftkings</a>.com/leagues/basketball/nba&#39;</span>
 
         
     </div>

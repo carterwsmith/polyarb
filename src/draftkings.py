@@ -1,3 +1,7 @@
+"""
+Interacts with DraftKings.
+"""
+
 from io import StringIO
 import pandas as pd
 import re
@@ -80,6 +84,7 @@ class DraftKingsBrowserContext(BrowserContext):
 
 
 def init_draftkings_session() -> DraftKingsBrowserContext:
+    """Initialize a DraftKings browser session."""
     context: DraftKingsBrowserContext = init_browser_context(
         extract=extract_draftkings_context,
         start_url=ODDS_URL,

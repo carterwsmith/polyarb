@@ -85,6 +85,46 @@ def formatted_df(intervals=None) -> pd.DataFrame:
     return df
 
 
+strategies = {
+    "Kelly": lambda row: row["Kelly Size"],
+    "Half Kelly": lambda row: row["Kelly Size"] * 0.5,
+    "Equal Weight": lambda row: 1,
+    "Custom": lambda row: min(row["Kelly Size"], 5),
+}
+
+
+def strategy_sim(df: pd.DataFrame, strategies: dict[str, callable]) -> None:
+    """
+    Simulate different strategies and graph the results.
+
+    Args:
+        df (pd.DataFrame): Formatted DataFrame of wagers
+        strategies (dict): Dictionary of strategy name to callable that takes a row and returns bet size
+    """
+    df = df.sort_values("Timestamp")
+    plt.figure(figsize=(12, 8))
+
+    for name, strategy in strategies.items():
+        running_pl = 0
+        pl_values = []
+
+        for _, row in df.iterrows():
+            bet_size = strategy(row)
+            if row["outcome"] == 1:
+                running_pl += bet_size
+            running_pl -= bet_size * row["price"]
+            pl_values.append(running_pl)
+
+        plt.plot(range(len(pl_values)), pl_values, label=name)
+
+    plt.title("Running P/L with Different Strategies")
+    plt.xlabel("Number of Bets")
+    plt.ylabel("Profit/Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
 def kelly_sim(df: pd.DataFrame) -> None:
     """
     Simulate different maximums for bet sizing and graph the results.
@@ -237,7 +277,11 @@ def graph(df: pd.DataFrame) -> None:
     for i, date in enumerate(dates):
         if date != current_date:
             plt.axvline(x=i, color="gray", linestyle="--", alpha=0.6)
+            # Add date label at the bottom
+            plt.text(i, plt.ylim()[0], date[5:], ha="right", va="top", fontsize=8)
             current_date = date
+
+    plt.tight_layout()
 
     plt.title(f"Running Profit/Loss Using Kelly Criterion and Equal Weight")
     plt.xlabel("Number of Bets")

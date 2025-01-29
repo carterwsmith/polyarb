@@ -280,7 +280,6 @@ def main(date: datetime = datetime.today() - timedelta(days=1)) -> NBASlate:
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True,
     ) as progress:
         task = progress.add_task(
             f"Scraping ESPN outcomes for {date.strftime('%Y-%m-%d')}"
@@ -291,6 +290,45 @@ def main(date: datetime = datetime.today() - timedelta(days=1)) -> NBASlate:
         save_slate_outcomes(results)
 
     return results
+
+
+def scrape_missing_dates(path: str = OUTCOMES_PATH) -> None:
+    """
+    Scrapes all dates that don't have an entry in the outcomes file, working backwards from yesterday
+    until finding the first existing entry.
+
+    Args:
+        path (str): Path to outcomes file, defaults to OUTCOMES_PATH
+    """
+    with open(path, "r") as f:
+        outcomes = json.load(f)
+
+    current = datetime.today() - timedelta(days=1)  # Start from yesterday
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+    ) as progress:
+        task = progress.add_task("Checking for missing dates")
+
+        while True:
+            date_key = current.strftime("%Y-%m-%d")
+            if date_key in outcomes:
+                break
+
+            progress.update(task, description=f"Scraping outcomes for {date_key}")
+            try:
+                slate = scrape_espn(current)
+                if slate.results:  # Only save if there were games
+                    progress.update(
+                        task,
+                        description=f"Saving {len(slate.results)} outcomes for {date_key}",
+                    )
+                    save_slate_outcomes(slate)
+            except Exception as e:
+                print(f"Failed to scrape {date_key}: {str(e)}")
+
+            current -= timedelta(days=1)
 
 
 if __name__ == "__main__":

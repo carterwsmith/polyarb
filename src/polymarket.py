@@ -4,14 +4,20 @@ Selenium resources for interacting with the Polymarket NBA page.
 
 from datetime import datetime
 import math
-import random
 import time
-from typing import List, Tuple
+from typing import (
+    List,
+    Tuple,
+    Optional,
+)
 
 import pandas as pd
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
@@ -26,6 +32,27 @@ from src.constants import (
     PolymarketWagerStatus,
     POLYMARKET_URL,
 )
+
+
+class PolymarketOdds:
+    """
+    Holds data for Polymarket prices for a single NBA game.
+    """
+
+    def __init__(
+        self,
+        away_team: str,
+        away_team_price: float,
+        home_team: str,
+        home_team_price: float,
+    ):
+        self.away_team = away_team
+        self.away_team_price = away_team_price
+        self.home_team = home_team
+        self.home_team_price = home_team_price
+
+    def __repr__(self):
+        return f"{self.away_team} ({self.away_team_price}) @ {self.home_team} ({self.home_team_price})"
 
 
 class PolymarketBetPanelDOMElement:
@@ -175,9 +202,65 @@ def float_to_cents(f: float) -> int:
     return math.floor(int(f * 100))
 
 
+def get_polymarket(context: PolymarketBrowserContext) -> List[PolymarketOdds]:
+    """
+    Get active NBA markets from Polymarket.
+
+    Returns:
+        List[PolymarketOdds]: Cleaned PolymarketOdds objects
+    """
+    out = []
+    for game in context.game_elements:
+        try:
+            away_price, home_price = game.prices()
+        except StaleElementReferenceException:
+            continue
+        obj = PolymarketOdds(
+            away_team=game.away_team_abbr,
+            away_team_price=away_price,
+            home_team=game.home_team_abbr,
+            home_team_price=home_price,
+        )
+        out.append(obj)
+    return out
+
+
+def find_team_polymarket_price(
+    team: str, listings: List[PolymarketOdds]
+) -> Optional[float]:
+    """
+    Find the current Polymarket price for a given team.
+
+    Args:
+        team (str): Full team name (from DraftKings)
+        listings (List[PolymarketOdds]): List of PolymarketOdds objects
+
+    Returns:
+        Optional[float]: Polymarket price for the team or None
+    """
+    for listing in listings:
+        if (
+            NBA_TEAM_TO_POLYMARKET_ABBREVIATION[team].lower()
+            in listing.away_team.lower()
+        ):
+            return listing.away_team_price
+        elif (
+            NBA_TEAM_TO_POLYMARKET_ABBREVIATION[team].lower()
+            in listing.home_team.lower()
+        ):
+            return listing.home_team_price
+    return None
+
+
 def sign_wager(
     context: PolymarketBrowserContext,
 ) -> bool:
+    """
+    In a browser, finds the MetaMask window and confirms the contract.
+
+    Args:
+        context (PolymarketBrowserContext): Browser context
+    """
     desired_title = "MetaMask"
 
     # Find the signature window and switch to it
@@ -244,6 +327,11 @@ def sign_wager(
             time.sleep(1)
             if "bought" in context.bet_panel.buy_button.text.lower():
                 return True
+            if (
+                not "buying" in context.bet_panel.buy_button.text.lower()
+                and "buy" in context.bet_panel.buy_button.text.lower()
+            ):
+                return False
             attempts += 1
         return False
     except Exception:
@@ -333,10 +421,12 @@ def place_wagers(
     return results
 
 
-def init_polymarket_session() -> PolymarketBrowserContext:
+def init_polymarket_session(manual: bool = True) -> PolymarketBrowserContext:
+    """Returns a Polymarket NBA browser session."""
     context: PolymarketBrowserContext = init_browser_context(
         extract=extract_polymarket_context,
         start_url=POLYMARKET_URL,
+        manual=manual,
     )
 
     return context
